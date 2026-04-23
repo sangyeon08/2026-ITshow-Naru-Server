@@ -12,7 +12,8 @@ export class ReviewsService {
       .leftJoinAndSelect('review.user', 'user')
       .where('review.storeId = :storeId', { storeId });
     if (nationality) {
-      qb.orderBy(`CASE WHEN review.nationality = '${nationality}' THEN 0 ELSE 1 END`);
+      qb.orderBy('CASE WHEN review.nationality = :nationality THEN 0 ELSE 1 END', 'ASC')
+        .setParameter('nationality', nationality);
     }
     return qb.getMany();
   }

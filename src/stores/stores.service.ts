@@ -16,7 +16,7 @@ export class StoresService {
 
   async findNearby(lat: number, lng: number, radius = 5): Promise<Store[]> {
     const stores = await this.storeRepository.query(
-      `SELECT *, ( 6371 * acos( cos( radians($1) ) * cos( radians(latitude) ) * cos( radians(longitude) - radians($2) ) + sin( radians($1) ) * sin( radians(latitude) ) ) ) AS distance FROM stores HAVING distance < $3 ORDER BY distance LIMIT 20`,
+      `SELECT * FROM ( SELECT *, ( 6371 * acos( cos( radians($1) ) * cos( radians(latitude) ) * cos( radians(longitude) - radians($2) ) + sin( radians($1) ) * sin( radians(latitude) ) ) ) AS distance FROM stores ) s WHERE distance < $3 ORDER BY distance LIMIT 20`,
       [lat, lng, radius],
     );
     return stores;
