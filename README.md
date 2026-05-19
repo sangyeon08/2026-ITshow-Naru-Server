@@ -96,7 +96,7 @@
 - Axios
 
 ### Backend
-- Spring Boot
+- NestJS
 - Java
 - JPA
 - PostgreSQL
