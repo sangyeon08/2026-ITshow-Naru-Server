@@ -99,7 +99,7 @@
 - NestJS
 - Java
 - JPA
-- PostgreSQL
+- PostgreSQL18
 
 ### External API
 - 실시간 환율 API
