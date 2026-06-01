@@ -1,5 +1,6 @@
 BEGIN;
 
+DROP TABLE IF EXISTS user_favorites;
 DROP TABLE IF EXISTS balances;
 DROP TABLE IF EXISTS exchanges;
 DROP TABLE IF EXISTS reviews;
@@ -17,16 +18,28 @@ CREATE TABLE users (
     email VARCHAR(100) UNIQUE NOT NULL,
     password VARCHAR(100) NOT NULL,
     phone VARCHAR(20),
-    allergy_info TEXT,
+    allergy_info TEXT[] DEFAULT '{}',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE stores (
     id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
+    subtitle TEXT,
     description TEXT,
+    category VARCHAR(50),
     address VARCHAR(200),
     country VARCHAR(20),
+    rating DECIMAL(3,1) DEFAULT 0,
+    review_count INTEGER DEFAULT 0,
+    delivery_time VARCHAR(50),
+    image TEXT,
+    hero_image TEXT,
+    logo_image TEXT,
+    allergy_info TEXT[] DEFAULT '{}',
+    minimum_order_amount INTEGER DEFAULT 0,
+    delivery_fee INTEGER DEFAULT 0,
+    distance VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -35,14 +48,18 @@ CREATE TABLE menus (
     store_id INTEGER REFERENCES stores(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
     category VARCHAR(30),
+    description TEXT,
     price INTEGER NOT NULL,
+    image TEXT,
+    rating DECIMAL(3,1) DEFAULT 0,
+    review_count INTEGER DEFAULT 0,
     allergy_tags TEXT,
-    description TEXT
+    options JSONB DEFAULT '[]'
 );
 
 CREATE TABLE carts (
     id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -50,16 +67,20 @@ CREATE TABLE cart_items (
     id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     cart_id INTEGER REFERENCES carts(id) ON DELETE CASCADE,
     menu_id INTEGER REFERENCES menus(id),
-    quantity INTEGER NOT NULL DEFAULT 1
+    quantity INTEGER NOT NULL DEFAULT 1,
+    options JSONB DEFAULT '[]',
+    unit_price INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE orders (
     id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     store_id INTEGER REFERENCES stores(id),
-    cart_id INTEGER REFERENCES carts(id),
+    type VARCHAR(20) DEFAULT 'DELIVERY',
     address VARCHAR(200),
     status VARCHAR(20) DEFAULT 'PAID',
+    payment_method VARCHAR(50) DEFAULT 'Credit',
+    paid_amount INTEGER DEFAULT 0,
     paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -67,7 +88,11 @@ CREATE TABLE order_items (
     id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
     menu_id INTEGER REFERENCES menus(id),
-    quantity INTEGER NOT NULL DEFAULT 1
+    menu_name VARCHAR(100),
+    menu_image TEXT,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    options JSONB DEFAULT '[]',
+    unit_price INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE reviews (
@@ -78,6 +103,14 @@ CREATE TABLE reviews (
     content TEXT,
     country VARCHAR(20),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE user_favorites (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    store_id INTEGER REFERENCES stores(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, store_id)
 );
 
 CREATE TABLE exchanges (
