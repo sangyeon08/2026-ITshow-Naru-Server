@@ -1,100 +1,220 @@
 BEGIN;
 
-DROP TABLE IF EXISTS balances;
-DROP TABLE IF EXISTS exchanges;
-DROP TABLE IF EXISTS reviews;
-DROP TABLE IF EXISTS order_items;
-DROP TABLE IF EXISTS orders;
-DROP TABLE IF EXISTS cart_items;
-DROP TABLE IF EXISTS carts;
-DROP TABLE IF EXISTS menus;
-DROP TABLE IF EXISTS stores;
-DROP TABLE IF EXISTS users;
+-- Drop tables if exist (order matters for FKs)
+DROP TABLE IF EXISTS notifications CASCADE;
+DROP TABLE IF EXISTS exchange_transactions CASCADE;
+DROP TABLE IF EXISTS exchange_rates CASCADE;
+DROP TABLE IF EXISTS user_coupons CASCADE;
+DROP TABLE IF EXISTS coupons CASCADE;
+DROP TABLE IF EXISTS payments CASCADE;
+DROP TABLE IF EXISTS order_items CASCADE;
+DROP TABLE IF EXISTS orders CASCADE;
+DROP TABLE IF EXISTS cart_items CASCADE;
+DROP TABLE IF EXISTS carts CASCADE;
+DROP TABLE IF EXISTS menu_allergies CASCADE;
+DROP TABLE IF EXISTS menus CASCADE;
+DROP TABLE IF EXISTS categories CASCADE;
+DROP TABLE IF EXISTS stores CASCADE;
+DROP TABLE IF EXISTS user_allergies CASCADE;
+DROP TABLE IF EXISTS allergies CASCADE;
+DROP TABLE IF EXISTS balances CASCADE;
+DROP TABLE IF EXISTS exchanges CASCADE;
+DROP TABLE IF EXISTS reviews CASCADE;
+DROP TABLE IF EXISTS countries CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
 
+-- Countries
+CREATE TABLE countries (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    currency_code VARCHAR(10),
+    currency_symbol VARCHAR(10)
+);
+
+-- Users
 CREATE TABLE users (
-    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name VARCHAR(50) NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
-    password VARCHAR(100) NOT NULL,
-    phone VARCHAR(20),
-    allergy_info TEXT,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(100),
+    email VARCHAR(200) UNIQUE,
+    password_hash VARCHAR(255),
+    phone VARCHAR(50),
+    profile_image_url TEXT,
+    country_id BIGINT REFERENCES countries(id),
+    balance_krw DECIMAL DEFAULT 0,
+    total_exchange_amount DECIMAL DEFAULT 0,
+    order_count INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Allergies and user_allergies
+CREATE TABLE allergies (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE user_allergies (
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    allergy_id BIGINT REFERENCES allergies(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, allergy_id)
+);
+
+-- Categories (for stores)
+CREATE TABLE categories (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(100),
+    image_url TEXT
+);
+
+-- Stores
 CREATE TABLE stores (
-    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    category_id BIGINT REFERENCES categories(id),
+    name VARCHAR(200),
     description TEXT,
-    address VARCHAR(200),
-    country VARCHAR(20),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    address TEXT,
+    latitude DECIMAL,
+    longitude DECIMAL,
+    image_url TEXT,
+    rating DECIMAL DEFAULT 0,
+    review_count INTEGER DEFAULT 0
 );
 
+-- Menus and menu_allergies
 CREATE TABLE menus (
-    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    store_id INTEGER REFERENCES stores(id) ON DELETE CASCADE,
-    name VARCHAR(100) NOT NULL,
-    category VARCHAR(30),
-    price INTEGER NOT NULL,
-    allergy_tags TEXT,
-    description TEXT
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    store_id BIGINT REFERENCES stores(id) ON DELETE CASCADE,
+    name VARCHAR(200),
+    description TEXT,
+    price DECIMAL NOT NULL,
+    image_url TEXT,
+    allergy_notice TEXT
 );
 
+CREATE TABLE menu_allergies (
+    menu_id BIGINT REFERENCES menus(id) ON DELETE CASCADE,
+    allergy_id BIGINT REFERENCES allergies(id) ON DELETE CASCADE,
+    PRIMARY KEY (menu_id, allergy_id)
+);
+
+-- Carts and cart_items
 CREATE TABLE carts (
-    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE cart_items (
-    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    cart_id INTEGER REFERENCES carts(id) ON DELETE CASCADE,
-    menu_id INTEGER REFERENCES menus(id),
-    quantity INTEGER NOT NULL DEFAULT 1
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cart_id BIGINT REFERENCES carts(id) ON DELETE CASCADE,
+    menu_id BIGINT REFERENCES menus(id),
+    quantity INTEGER DEFAULT 1
 );
 
+-- Orders and order_items
 CREATE TABLE orders (
-    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    store_id INTEGER REFERENCES stores(id),
-    cart_id INTEGER REFERENCES carts(id),
-    address VARCHAR(200),
-    status VARCHAR(20) DEFAULT 'PAID',
-    paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    store_id BIGINT REFERENCES stores(id),
+    delivery_address TEXT,
+    total_amount DECIMAL DEFAULT 0,
+    status VARCHAR(50),
+    ordered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP
 );
 
 CREATE TABLE order_items (
-    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
-    menu_id INTEGER REFERENCES menus(id),
-    quantity INTEGER NOT NULL DEFAULT 1
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    order_id BIGINT REFERENCES orders(id) ON DELETE CASCADE,
+    menu_id BIGINT REFERENCES menus(id),
+    quantity INTEGER DEFAULT 1,
+    price DECIMAL
 );
 
+-- Payments
+CREATE TABLE payments (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    order_id BIGINT REFERENCES orders(id) ON DELETE CASCADE,
+    amount DECIMAL,
+    card_company VARCHAR(100),
+    paid_at TIMESTAMP,
+    status VARCHAR(50)
+);
+
+-- Reviews
 CREATE TABLE reviews (
-    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    store_id INTEGER REFERENCES stores(id) ON DELETE CASCADE,
-    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    store_id BIGINT REFERENCES stores(id) ON DELETE CASCADE,
+    user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    rating INTEGER CHECK (rating BETWEEN 1 AND 5),
     content TEXT,
-    country VARCHAR(20),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE exchanges (
-    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    type VARCHAR(20) NOT NULL,
-    amount INTEGER NOT NULL,
-    currency VARCHAR(10) NOT NULL,
-    balance_after INTEGER,
+-- Coupons and user_coupons
+CREATE TABLE coupons (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(200),
+    discount_amount DECIMAL,
+    expires_at TIMESTAMP
+);
+
+CREATE TABLE user_coupons (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    coupon_id BIGINT REFERENCES coupons(id) ON DELETE CASCADE,
+    is_used BOOLEAN DEFAULT FALSE,
+    used_at TIMESTAMP
+);
+
+-- Exchange rates and transactions
+CREATE TABLE exchange_rates (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    from_currency VARCHAR(10),
+    to_currency VARCHAR(10),
+    rate DECIMAL,
+    fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE exchange_transactions (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    from_currency VARCHAR(10),
+    to_currency VARCHAR(10),
+    amount_from DECIMAL,
+    amount_to DECIMAL,
+    exchange_rate DECIMAL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Balances (kept for compatibility)
 CREATE TABLE balances (
-    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    balance_krw INTEGER DEFAULT 0,
-    balance_usd INTEGER DEFAULT 0,
+    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    balance_krw DECIMAL DEFAULT 0,
+    balance_usd DECIMAL DEFAULT 0,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Exchanges (legacy)
+CREATE TABLE exchanges (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    type VARCHAR(50),
+    amount DECIMAL,
+    currency VARCHAR(10),
+    balance_after DECIMAL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Notifications
+CREATE TABLE notifications (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    order_id BIGINT REFERENCES orders(id),
+    title VARCHAR(300),
+    message TEXT,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP
 );
 
 COMMIT;
