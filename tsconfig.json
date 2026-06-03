@@ -13,5 +13,15 @@
     "types": ["node"]
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "scripts"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "scripts",
+    "src/main.ts",
+    "src/app.module.ts",
+    "src/app.controller.ts",
+    "src/app.service.ts",
+    "src/app.controller.spec.ts",
+    "src/entities"
+  ]
 }
