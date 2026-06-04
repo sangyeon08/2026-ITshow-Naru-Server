@@ -1,12 +1,14 @@
 import express from 'express';
 import { supabase } from '../utils/supabase';
+import { authMiddleware } from '../middleware/auth';
 
 const router = express.Router();
 
-// GET /api/v1/stores/search?query=...
+// GET /api/v1/stores/search?query=...&categoryId=1
 router.get('/search', async (req, res, next) => {
   try {
     const query = String(req.query.query || '').trim();
+    const categoryId = req.query.categoryId ? Number(req.query.categoryId) : null;
 
     let q = supabase
       .from('stores')
@@ -14,6 +16,10 @@ router.get('/search', async (req, res, next) => {
 
     if (query) {
       q = q.ilike('name', `%${query}%`);
+    }
+
+    if (categoryId) {
+      q = q.eq('category_id', categoryId);
     }
 
     const { data, error } = await q.order('rating', { ascending: false });
@@ -41,6 +47,42 @@ router.get('/nearby', async (req, res, next) => {
     }
 
     res.json({ success: true, message: `${data.length}개 가게 조회`, data });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// POST /api/v1/stores/:storeId/reviews  [auth]
+router.post('/:storeId/reviews', authMiddleware, async (req, res, next) => {
+  try {
+    const storeId = Number(req.params.storeId);
+    const { rating, content, country } = req.body;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ success: false, message: 'rating은 1~5 사이여야 합니다.' });
+    }
+
+    const { data: store, error: storeError } = await supabase
+      .from('stores')
+      .select('id')
+      .eq('id', storeId)
+      .maybeSingle();
+
+    if (storeError || !store) {
+      return res.status(404).json({ success: false, message: '가게를 찾을 수 없습니다.' });
+    }
+
+    const { data: review, error } = await supabase
+      .from('reviews')
+      .insert({ store_id: storeId, user_id: req.userId!, rating, content: content ?? null, country: country ?? null })
+      .select('id, rating, content, country, created_at')
+      .single();
+
+    if (error) {
+      return res.status(400).json({ success: false, message: '리뷰 작성 실패', error: error.message });
+    }
+
+    res.status(201).json({ success: true, message: '리뷰를 작성했습니다.', data: review });
   } catch (e) {
     next(e);
   }
