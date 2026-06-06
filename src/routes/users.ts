@@ -34,12 +34,12 @@ router.get('/me/orders', async (req, res, next) => {
     let q = supabase
       .from('orders')
       .select(`
-        id, status, paid_amount, address, type, payment_method, paid_at,
+        id, status, total_amount, delivery_address, ordered_at, completed_at,
         stores(id, name, image_url),
-        order_items(id, menu_id, quantity, unit_price, menu_name, menu_image)
+        order_items(id, menu_id, quantity, price, menus(name, image_url))
       `)
       .eq('user_id', req.userId!)
-      .order('paid_at', { ascending: false });
+      .order('ordered_at', { ascending: false });
 
     if (statusParam === 'pending') {
       q = q.in('status', PENDING_STATUSES);

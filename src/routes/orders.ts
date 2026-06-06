@@ -15,7 +15,13 @@ const ORDER_STATUS_GAUGE: Record<string, number> = {
 // POST /api/v1/orders  [auth]
 router.post('/', authMiddleware, async (req, res, next) => {
   try {
-    const { type = 'DELIVERY', deliveryAddress, cartItemIds } = req.body;
+    const {
+      type = 'DELIVERY',
+      deliveryAddress,
+      cartItemIds,
+      totalAmount,
+      items,
+    } = req.body;
 
     if (!['DELIVERY', 'PICKUP'].includes(type)) {
       return res.status(400).json({ success: false, message: 'type은 DELIVERY 또는 PICKUP이어야 합니다.' });
@@ -27,32 +33,48 @@ router.post('/', authMiddleware, async (req, res, next) => {
       .eq('user_id', req.userId!)
       .maybeSingle();
 
-    if (!cart) {
-      return res.status(400).json({ success: false, message: '장바구니가 비어 있습니다.' });
+    let cartItems: any[] = [];
+    if (cart) {
+      let cartQuery = supabase
+        .from('cart_items')
+        .select('id, menu_id, quantity, menus(id, name, price, image_url, store_id)')
+        .eq('cart_id', cart.id);
+
+      if (Array.isArray(cartItemIds) && cartItemIds.length > 0) {
+        cartQuery = cartQuery.in('id', cartItemIds);
+      }
+
+      const { data, error: cartError } = await cartQuery;
+      if (cartError) {
+        return res.status(400).json({ success: false, message: '장바구니 조회 실패', error: cartError.message });
+      }
+      cartItems = data ?? [];
     }
 
-    let cartQuery = supabase
-      .from('cart_items')
-      .select('id, menu_id, quantity, menus(id, name, price, image_url, store_id)')
-      .eq('cart_id', cart.id);
+    const directItems = Array.isArray(items)
+      ? items
+          .map((item) => ({
+            quantity: Math.max(1, Number(item?.quantity) || 1),
+            price: Math.max(0, Number(item?.price) || 0),
+          }))
+          .filter((item) => item.quantity > 0)
+      : [];
 
-    if (Array.isArray(cartItemIds) && cartItemIds.length > 0) {
-      cartQuery = cartQuery.in('id', cartItemIds);
-    }
-
-    const { data: cartItems, error: cartError } = await cartQuery;
-
-    if (cartError || !cartItems || cartItems.length === 0) {
+    if (cartItems.length === 0 && directItems.length === 0) {
       return res.status(400).json({ success: false, message: '주문할 항목이 없습니다.' });
     }
 
-    const firstMenu = cartItems[0].menus as { store_id: number | null } | null;
+    const firstMenu = cartItems[0]?.menus as { store_id: number | null } | null | undefined;
     const storeId = firstMenu?.store_id ?? null;
 
-    const totalAmount = cartItems.reduce((sum, ci) => {
-      const menu = ci.menus as { price: number } | null;
-      return sum + (menu?.price ?? 0) * (ci.quantity ?? 1);
-    }, 0);
+    const calculatedAmount = cartItems.length > 0
+      ? cartItems.reduce((sum, ci) => {
+          const menu = ci.menus as { price: number } | null;
+          return sum + (menu?.price ?? 0) * (ci.quantity ?? 1);
+        }, 0)
+      : directItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+    const orderTotalAmount = Math.max(Number(totalAmount) || 0, calculatedAmount);
 
     const { data: order, error: orderError } = await supabase
       .from('orders')
@@ -60,7 +82,7 @@ router.post('/', authMiddleware, async (req, res, next) => {
         user_id: req.userId!,
         store_id: storeId,
         delivery_address: deliveryAddress ?? null,
-        total_amount: totalAmount,
+        total_amount: orderTotalAmount,
         status: 'PAID',
       })
       .select('id, status, total_amount, delivery_address, ordered_at')
@@ -70,22 +92,31 @@ router.post('/', authMiddleware, async (req, res, next) => {
       return res.status(400).json({ success: false, message: '주문 생성 실패', error: orderError.message });
     }
 
-    const orderItemRows = cartItems.map((ci) => {
-      const menu = ci.menus as { price: number } | null;
-      return {
-        order_id: order.id,
-        menu_id: ci.menu_id,
-        quantity: ci.quantity ?? 1,
-        price: menu?.price ?? 0,
-      };
-    });
+    const orderItemRows = cartItems.length > 0
+      ? cartItems.map((ci) => {
+          const menu = ci.menus as { price: number } | null;
+          return {
+            order_id: order.id,
+            menu_id: ci.menu_id,
+            quantity: ci.quantity ?? 1,
+            price: menu?.price ?? 0,
+          };
+        })
+      : directItems.map((item) => ({
+          order_id: order.id,
+          menu_id: null,
+          quantity: item.quantity,
+          price: item.price,
+        }));
 
     const { error: itemsError } = await supabase.from('order_items').insert(orderItemRows);
     if (itemsError) {
       return res.status(400).json({ success: false, message: '주문 아이템 저장 실패', error: itemsError.message });
     }
 
-    await supabase.from('cart_items').delete().in('id', cartItems.map((ci) => ci.id));
+    if (cartItems.length > 0) {
+      await supabase.from('cart_items').delete().in('id', cartItems.map((ci) => ci.id));
+    }
 
     res.status(201).json({ success: true, message: '주문이 완료됐습니다.', data: order });
   } catch (e) {
