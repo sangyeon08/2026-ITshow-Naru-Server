@@ -9,6 +9,23 @@
 
 BEGIN;
 
+-- ── users: /api/v1/auth reads/writes password_hash ──
+ALTER TABLE public.users
+  ADD COLUMN IF NOT EXISTS password_hash character varying;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'users'
+      AND column_name = 'password'
+  ) THEN
+    EXECUTE 'UPDATE public.users SET password_hash = password WHERE password_hash IS NULL';
+  END IF;
+END $$;
+
 -- ── users: /api/v1/users/me selects balance_usd (balance_krw already exists) ──
 ALTER TABLE public.users
   ADD COLUMN IF NOT EXISTS balance_usd numeric DEFAULT 0;
