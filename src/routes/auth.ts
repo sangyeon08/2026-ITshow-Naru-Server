@@ -68,12 +68,12 @@ router.post('/login', async (req, res, next) => {
     const storedPasswordHash = user?.password_hash ?? user?.password;
 
     if (error || !user || !storedPasswordHash) {
-      return res.status(401).json({ success: false, message: '이메일 또는 비밀번호가 틀렸습니다.' });
+      return res.status(401).json({ success: false, message: '존재하지 않은 이메일 또는 비밀번호 입니다' });
     }
 
     const match = await bcrypt.compare(password, storedPasswordHash);
     if (!match) {
-      return res.status(401).json({ success: false, message: '이메일 또는 비밀번호가 틀렸습니다.' });
+      return res.status(401).json({ success: false, message: '존재하지 않은 이메일 또는 비밀번호 입니다' });
     }
 
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '7d' });
