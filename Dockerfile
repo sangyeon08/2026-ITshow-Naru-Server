@@ -1,5 +1,5 @@
 # ── Stage 1: Build ────────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 # bcrypt 네이티브 모듈 컴파일에 필요한 빌드 도구
 RUN apk add --no-cache python3 make g++
@@ -15,7 +15,7 @@ COPY src ./src
 RUN npm run build && npm prune --omit=dev
 
 # ── Stage 2: Production ───────────────────────────────────────────────────────
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 
