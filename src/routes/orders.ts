@@ -54,6 +54,10 @@ router.post('/', authMiddleware, async (req, res, next) => {
     const directItems = Array.isArray(items)
       ? items
           .map((item) => ({
+            menuId: item?.menuId == null ? null : Number(item.menuId),
+            storeId: item?.storeId == null ? null : Number(item.storeId),
+            name: typeof item?.name === 'string' ? item.name : null,
+            imageUrl: typeof item?.imageUrl === 'string' ? item.imageUrl : null,
             quantity: Math.max(1, Number(item?.quantity) || 1),
             price: Math.max(0, Number(item?.price) || 0),
           }))
@@ -65,7 +69,8 @@ router.post('/', authMiddleware, async (req, res, next) => {
     }
 
     const firstMenu = cartItems[0]?.menus as { store_id: number | null } | null | undefined;
-    const storeId = firstMenu?.store_id ?? null;
+    const directStoreId = directItems.find((item) => item.storeId && item.storeId > 0)?.storeId ?? null;
+    const storeId = firstMenu?.store_id ?? directStoreId;
 
     const calculatedAmount = cartItems.length > 0
       ? cartItems.reduce((sum, ci) => {
@@ -104,7 +109,7 @@ router.post('/', authMiddleware, async (req, res, next) => {
         })
       : directItems.map((item) => ({
           order_id: order.id,
-          menu_id: null,
+          menu_id: item.menuId && item.menuId > 0 ? item.menuId : null,
           quantity: item.quantity,
           price: item.price,
         }));
