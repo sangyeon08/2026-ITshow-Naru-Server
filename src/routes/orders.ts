@@ -56,8 +56,24 @@ router.post('/', authMiddleware, async (req, res, next) => {
           .map((item) => ({
             menuId: item?.menuId == null ? null : Number(item.menuId),
             storeId: item?.storeId == null ? null : Number(item.storeId),
-            name: typeof item?.name === 'string' ? item.name : null,
-            imageUrl: typeof item?.imageUrl === 'string' ? item.imageUrl : null,
+            name:
+              typeof item?.name === 'string'
+                ? item.name
+                : typeof item?.menuName === 'string'
+                  ? item.menuName
+                  : typeof item?.menu_name === 'string'
+                    ? item.menu_name
+                    : null,
+            imageUrl:
+              typeof item?.imageUrl === 'string'
+                ? item.imageUrl
+                : typeof item?.image_url === 'string'
+                  ? item.image_url
+                  : typeof item?.menuImage === 'string'
+                    ? item.menuImage
+                    : typeof item?.menu_image === 'string'
+                      ? item.menu_image
+                      : null,
             quantity: Math.max(1, Number(item?.quantity) || 1),
             price: Math.max(0, Number(item?.price) || 0),
           }))
@@ -99,10 +115,12 @@ router.post('/', authMiddleware, async (req, res, next) => {
 
     const orderItemRows = cartItems.length > 0
       ? cartItems.map((ci) => {
-          const menu = ci.menus as { price: number } | null;
+          const menu = ci.menus as { name: string | null; price: number; image_url: string | null } | null;
           return {
             order_id: order.id,
             menu_id: ci.menu_id,
+            menu_name: menu?.name ?? null,
+            menu_image: menu?.image_url ?? null,
             quantity: ci.quantity ?? 1,
             price: menu?.price ?? 0,
           };
@@ -110,11 +128,13 @@ router.post('/', authMiddleware, async (req, res, next) => {
       : directItems.map((item) => ({
           order_id: order.id,
           menu_id: item.menuId && item.menuId > 0 ? item.menuId : null,
+          menu_name: item.name,
+          menu_image: item.imageUrl,
           quantity: item.quantity,
           price: item.price,
         }));
 
-    const { error: itemsError } = await supabase.from('order_items').insert(orderItemRows);
+    const { error: itemsError } = await supabase.from('order_items').insert(orderItemRows as any);
     if (itemsError) {
       return res.status(400).json({ success: false, message: '주문 아이템 저장 실패', error: itemsError.message });
     }
@@ -138,7 +158,7 @@ router.get('/:orderId', authMiddleware, async (req, res, next) => {
       .from('orders')
       .select(`
         id, status, total_amount, delivery_address, ordered_at,
-        order_items(id, menu_id, quantity, price, menus(name, image_url))
+        order_items(id, menu_id, quantity, price, menu_name, menu_image, menus(name, image_url))
       `)
       .eq('id', orderId)
       .maybeSingle();
