@@ -36,7 +36,7 @@ router.get('/me/orders', async (req, res, next) => {
       .select(`
         id, status, total_amount, delivery_address, ordered_at, completed_at,
         stores(id, name, image_url),
-        order_items(id, menu_id, quantity, price, menus(name, image_url))
+        order_items(id, menu_id, quantity, price, menu_name, menu_image, menus(name, image_url))
       `)
       .eq('user_id', req.userId!)
       .order('ordered_at', { ascending: false });
