@@ -111,6 +111,8 @@ router.patch('/items/:cartItemId', async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'quantity(>0)가 필요합니다.' });
     }
 
+
+    //after
     const { data: existing, error: fetchError } = await supabase
       .from('cart_items')
       .select('id, cart_id, carts(user_id)')

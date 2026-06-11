@@ -75,7 +75,7 @@ router.post('/:storeId/reviews', authMiddleware, async (req, res, next) => {
     const { data: review, error } = await supabase
       .from('reviews')
       .insert({ store_id: storeId, user_id: req.userId!, rating, content: content ?? null, country: country ?? null })
-      .select('id, rating, content, country, created_at')
+      .select('id, rating, content, country, image_url, created_at')
       .single();
 
     if (error) {
@@ -95,7 +95,7 @@ router.get('/:storeId/reviews', async (req, res, next) => {
 
     const { data, error } = await supabase
       .from('reviews')
-      .select('id, rating, content, country, created_at, users(name)')
+      .select('id, rating, content, country, image_url, created_at, users(name)')
       .eq('store_id', storeId)
       .order('created_at', { ascending: false });
 
